@@ -1,4 +1,4 @@
-exports.filter = function(html, whitelist, callback) {
+exports.filter = function(html, whitelist, ti, callback) {
     var view,
         filter,
         parser,
@@ -30,7 +30,7 @@ exports.filter = function(html, whitelist, callback) {
         }
     };
 
-    walker = function(dom) {
+    walker = function(dom, ti) {
         var lbl,
             tree = [],
             objects = [],
@@ -194,6 +194,7 @@ exports.filter = function(html, whitelist, callback) {
                             labels = getLabels(item);
                             labels.forEach(function(label) {
                                 label.text = label.texts.join("");
+                                delete label.texts;
                                 objects.push(label);
                             });
                         } else if (item.name === "img") {
@@ -220,141 +221,144 @@ exports.filter = function(html, whitelist, callback) {
                 });
             }
             //create the titanium objects
-            objects.forEach(function(obj) {
-                var lbl,
-                    klass,
-                    style,
-                    iv,
-                    data = [],
-                    tv,
-                    tvs,
-                    tvr;
-                obj || ( obj = {});
-                if (obj.type === "label" && obj.text) {
+            if (ti) {
+                objects.forEach(function(obj) {
+                    var lbl,
+                        klass,
+                        style,
+                        iv,
+                        data = [],
+                        tv,
+                        tvs,
+                        tvr;
+                    obj || ( obj = {});
+                    if (obj.type === "label" && obj.text) {
 
-                    lbl = Ti.UI.createLabel({
-                        text : obj.text
-                    });
-
-                    if (obj.class) {
-                        klass = obj.class;
-                    } else {
-                        klass = "label";
-                    }
-
-                    //note that you need to to use .call($) to bind createStyle to your page
-                    style = $.createStyle({
-                        classes : klass,
-                        apiName : 'Label'
-                    });
-
-                    lbl.applyProperties(style);
-                    tiObjects.push(lbl);
-                    if (obj.links && obj.links.length > 0) {
-                        //add a cancel button
-                        obj.links.push("cancel");
                         lbl = Ti.UI.createLabel({
-                            text : 'links'
+                            text : obj.text
                         });
+
+                        if (obj.class) {
+                            klass = obj.class;
+                        } else {
+                            klass = "label";
+                        }
 
                         //note that you need to to use .call($) to bind createStyle to your page
                         style = $.createStyle({
-                            classes : 'a',
+                            classes : klass,
                             apiName : 'Label'
                         });
 
                         lbl.applyProperties(style);
-
-                        var opts = {
-                            title : 'Open Link?',
-                            cancel : obj.links.length,
-                            options : obj.links
-                        };
-
-                        var dialog = Ti.UI.createOptionDialog(opts);
-
-                        dialog.addEventListener('click', function(e) {
-                            var intent,
-                                url,
-                                index;
-                            index = e.index;
-                            url = e.source.options[index];
-                            if (url !== "cancel") {
-                                if (Ti.Platform.osname !== "android") {
-                                    Ti.Platform.openURL(url);
-                                } else {
-                                    intent = Ti.Android.createIntent({
-                                        action : Ti.Android.ACTION_VIEW,
-                                        data : url
-                                    });
-                                    Ti.Android.currentActivity.startActivity(intent);
-                                }
-                            } else {
-                                dialog.hide();
-                            }
-                        });
-
-                        lbl.addEventListener('click', function(e) {
-                            dialog.show();
-                        });
                         tiObjects.push(lbl);
+                        if (obj.links && obj.links.length > 0) {
+                            //add a cancel button
+                            obj.links.push("cancel");
+                            lbl = Ti.UI.createLabel({
+                                text : 'links'
+                            });
+
+                            //note that you need to to use .call($) to bind createStyle to your page
+                            style = $.createStyle({
+                                classes : 'a',
+                                apiName : 'Label'
+                            });
+
+                            lbl.applyProperties(style);
+
+                            var opts = {
+                                title : 'Open Link?',
+                                cancel : obj.links.length,
+                                options : obj.links
+                            };
+
+                            var dialog = Ti.UI.createOptionDialog(opts);
+
+                            dialog.addEventListener('click', function(e) {
+                                var intent,
+                                    url,
+                                    index;
+                                index = e.index;
+                                url = e.source.options[index];
+                                if (url !== "cancel") {
+                                    if (Ti.Platform.osname !== "android") {
+                                        Ti.Platform.openURL(url);
+                                    } else {
+                                        intent = Ti.Android.createIntent({
+                                            action : Ti.Android.ACTION_VIEW,
+                                            data : url
+                                        });
+                                        Ti.Android.currentActivity.startActivity(intent);
+                                    }
+                                } else {
+                                    dialog.hide();
+                                }
+                            });
+
+                            lbl.addEventListener('click', function(e) {
+                                dialog.show();
+                            });
+                            tiObjects.push(lbl);
+                        }
+
+                    }
+                    if ((obj.type === "tableView") || (obj.type === "listView")) {
+
+                        tv = Ti.UI.createTableView();
+
+                        style = $.createStyle({
+                            classes : "tableView",
+                            apiName : 'TableView'
+                        });
+
+                        tv.applyProperties(style);
+
+                        obj.children.forEach(function(child) {
+                            if (child.type === "tableViewSection" && child.text) {
+                                lbl = Ti.UI.createLabel({
+                                    text : child.text
+                                });
+                                style = $.createStyle({
+                                    classes : "tableViewHeader",
+                                    apiName : 'Label'
+                                });
+                            }
+                            if ((child.type === "tableViewRow") || (child.type === "listViewItem") && child.text) {
+                                lbl = Ti.UI.createLabel({
+                                    text : child.text
+                                });
+                                style = $.createStyle({
+                                    classes : 'tableViewRow',
+                                    apiName : 'Label'
+                                });
+                            }
+                            lbl.applyProperties(style);
+                            tiObjects.push(lbl);
+                        });
                     }
 
-                }
-                if ((obj.type === "tableView") || (obj.type === "listView")) {
-
-                    tv = Ti.UI.createTableView();
-
-                    style = $.createStyle({
-                        classes : "tableView",
-                        apiName : 'TableView'
-                    });
-
-                    tv.applyProperties(style);
-
-                    obj.children.forEach(function(child) {
-                        if (child.type === "tableViewSection" && child.text) {
-                            lbl = Ti.UI.createLabel({
-                                text : child.text
-                            });
-                            style = $.createStyle({
-                                classes : "tableViewHeader",
-                                apiName : 'Label'
-                            });
-                        }
-                        if ((child.type === "tableViewRow") || (child.type === "listViewItem") && child.text) {
-                            lbl = Ti.UI.createLabel({
-                                text : child.text
-                            });
-                            style = $.createStyle({
-                                classes : 'tableViewRow',
-                                apiName : 'Label'
-                            });
-                        }
-                        lbl.applyProperties(style);
-                        tiObjects.push(lbl);
-                    });
-                }
-
-                if (obj.type === "imageView" && obj.src && obj.height && obj.width) {
-                    iv = Ti.UI.createImageView({
-                        "image" : obj.src,
-                        "height" : obj.height,
-                        "width" : obj.width
-                    });
-                    style = $.createStyle({
-                        classes : 'imageView',
-                        apiName : 'ImageView'
-                    });
-                    iv.applyProperties(style);
-                    tiObjects.push(iv);
-                }
-            });
+                    if (obj.type === "imageView" && obj.src && obj.height && obj.width) {
+                        iv = Ti.UI.createImageView({
+                            "image" : obj.src,
+                            "height" : obj.height,
+                            "width" : obj.width
+                        });
+                        style = $.createStyle({
+                            classes : 'imageView',
+                            apiName : 'ImageView'
+                        });
+                        iv.applyProperties(style);
+                        tiObjects.push(iv);
+                    }
+                });
+                objects = null;
+                return tiObjects;
+            } else {
+                return objects;
+            }
         } catch(ex) {
             console.error(ex);
-        } finally {
-            objects = null;
-            return tiObjects;
         }
     };
     handler = new htmlparser.DomHandler(function(error, dom) {
@@ -378,7 +382,6 @@ exports.filter = function(html, whitelist, callback) {
         if (error) {
             callback(error);
         } else {
-            //console.log(data);
             parser.parseComplete(data);
         }
     });
